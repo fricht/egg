@@ -139,7 +139,7 @@ Point compute_c_given_n(
     double last_cross_section = 0;
     double err = *half_area; // start with max error
     while (1 /* i feel like a real C dev by putting 1 instead of true */) {
-        Point new_c = c; // TODO : compute new_c
+        Point new_c = c;
         if (last_cross_section > 0) {
             double movment = - *learn_rate * err / last_cross_section;
             new_c.x += n->x * movment;
@@ -148,7 +148,7 @@ Point compute_c_given_n(
         last_cross_section = split_figure(&new_c, n, crossings, shape, shape_size);
         double new_area = area(shape, *shape_size);
         double new_err = *half_area - new_area;
-        if (fabs(new_err) >= fabs(err) || err == 0) {
+        if (fabs(new_err) >= fabs(err)) {
             break;
         }
         err = new_err;
