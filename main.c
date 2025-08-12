@@ -261,7 +261,7 @@ void create_svg(const char* filename, Point* enveloppe, uint envlp_size, bool sh
     fprintf(
         svg_file,
         "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1000\" height=\"1000\" viewBox=\"%lf %lf %lf %lf\">\n",
-        minX, minY, maxX, maxY
+        minX, minY, maxX - minX, maxY - minX
     );
     double stroke_width = 0.04; // TODO : dynamically compute that
     // draw shape
