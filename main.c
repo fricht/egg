@@ -3,48 +3,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#define PI 3.141592653689793
+#include "polygoner.h"
+#include "utils.h"
 
-typedef unsigned int uint;
-
-typedef struct {
-    double x;
-    double y;
-} Point;
-typedef Point Vec; // alias
-
-typedef struct {
-    uint npts;
-    Point* shape;
-} Polygon;
-
-// L-shape
-// #define NPTS 6
-// Point PTS[NPTS] = {
-//     {0, 7},
-//     {0, 0},
-//     {7, 0},
-//     {7, 1},
-//     {1, 1},
-//     {1, 7}
-// };
-
-// E
-#define NPTS 12
-Point PTS[NPTS] = {
-    {0, 9},
-    {0, 0},
-    {6, 0},
-    {6, 1},
-    {1, 1},
-    {1, 4},
-    {5, 4},
-    {5, 5},
-    {1, 5},
-    {1, 8},
-    {6, 8},
-    {6, 9}
-};
 
 double area(Point** points, uint length) {
     /*
@@ -302,9 +263,9 @@ int main() {
     Point Cs[samples];
     Vec Ns[samples];
     double learn_rate = 0.01;
-    Polygon polygon = {NPTS, PTS};
-    you_spin_me_right_round(&polygon, Cs, Ns, samples, learn_rate);
+    Polygon* polygon = interactive_polygon_selector();
+    you_spin_me_right_round(polygon, Cs, Ns, samples, learn_rate);
     Point enveloppe[samples];
     compute_enveloppe(Cs, Ns, samples, enveloppe);
-    create_svg("out.svg", &polygon, enveloppe, samples, true, true);
+    create_svg("out.svg", polygon, enveloppe, samples, false, true);
 }
