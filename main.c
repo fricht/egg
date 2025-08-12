@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#define PI 3.141592653689793
 
 typedef unsigned int uint;
 
@@ -12,16 +13,39 @@ typedef struct {
 } Point;
 typedef Point Vec; // alias
 
+// L-shape
 #define NPTS 6
-
 Point PTS[NPTS] = {
-    {0, 4},
+    {0, 7},
     {0, 0},
-    {3, 0},
-    {3, 1},
+    {7, 0},
+    {7, 1},
     {1, 1},
-    {1, 4}
+    {1, 7}
 };
+
+// G-shape (seems balanced)
+// #define NPTS 18
+// Point PTS[NPTS] = {
+//     {4, 0},
+//     {1, 0},
+//     {0, 1},
+//     {0, 6},
+//     {1, 7},
+//     {3, 7},
+//     {4, 6},
+//     {4, 5},
+//     {5, 5},
+//     {5, 4},
+//     {4, 4},
+//     {3, 4},
+//     {3, 5},
+//     {2, 6},
+//     {1, 5},
+//     {1, 2},
+//     {2, 1},
+//     {4, 1}
+// };
 
 double area(Point** points, uint length) {
     /*
@@ -66,15 +90,30 @@ Point line_segment_intersection(Point* pt, Vec* n, Point* a, Point* b) {
     return intersection;
 }
 
+Point line_line_intersection(Point* c1, Vec* n1, Point* c2, Vec* n2) {
+    // if it works, don't touch it (it doesn't)
+    double q1 = n1->x * c1->x + n1->y * c1->y;
+    double q2 = n2->x * c2->x + n2->y * c2->y;
+    double denomX = n2->x * n1->y - n1->x * n2->y;
+    double x = (n1->y * q2 - n2->y * q1) / denomX;
+    double y = (n1->x * q2 - n2->x * q1) / -denomX;
+    Point intersection = {x, y};
+    return intersection;
+}
+
 int sorting_x(const void* p1, const void* p2) {
     const Point* a = *(const Point**)p1;
     const Point* b = *(const Point**)p2;
-    return a->x < b->x;
+    if (a->x < b->x) return -1;
+    if (a->x > b->x) return 1;
+    return 0;
 }
 int sorting_y(const void* p1, const void* p2) {
     const Point* a = *(const Point**)p1;
     const Point* b = *(const Point**)p2;
-    return a->y < b->y;
+    if (a->y < b->y) return -1;
+    if (a->y > b->y) return 1;
+    return 0;
 }
 
 double split_figure(
@@ -157,15 +196,7 @@ Point compute_c_given_n(
     return c;
 }
 
-int main() {
-    uint worst_case_shape = (uint)(NPTS + NPTS / 2);
-    uint worst_case_crossings = NPTS;
-    Point* shape[worst_case_shape];
-    Point crossings[worst_case_crossings];
-    uint shape_size;
-    Point center = {3, 0};
-    Vec normal = {1, 0};
-    double learn_rate = 0.001;
+void you_spin_me_right_round(Point* Cs, Vec* Ns, uint samples, double learn_rate) {
     // compute cache data
     double Sx = 0;
     double Sy = 0;
@@ -177,6 +208,101 @@ int main() {
     }
     Point mean_point = {Sx / NPTS, Sy / NPTS};
     double half_area = area(all_area, NPTS) / 2;
-    Point c = compute_c_given_n(&normal, &learn_rate, &mean_point, &half_area, shape, crossings, &shape_size);
-    printf("c = {%lf, %lf}", c.x, c.y);
+    // buffers & things
+    uint worst_case_shape = (uint)(NPTS + NPTS / 2);
+    uint worst_case_crossings = NPTS;
+    Point* shape[worst_case_shape];
+    Point crossings[worst_case_crossings];
+    uint shape_size;
+    double delta_angle = PI / samples;
+    double angle = 0;
+    for (uint i = 0; i < samples; i++) {
+        Vec normal = {cos(angle), sin(angle)};
+        Point c = compute_c_given_n(&normal, &learn_rate, &mean_point, &half_area, shape, crossings, &shape_size);
+        Cs[i] = c;
+        Ns[i] = normal;
+        angle += delta_angle;
+    }
+}
+
+void compute_enveloppe(Point* Cs, Vec* Ns, uint samples, Point* enveloppe) {
+    for (uint i = 0; i < samples; i++) {
+        uint j = (i + 1) % samples;
+        enveloppe[i] = line_line_intersection(&Cs[i], &Ns[i], &Cs[j], &Ns[j]);
+    }
+}
+
+void create_svg(const char* filename, Point* enveloppe, uint envlp_size, bool show_envlp_points, bool show_envlp_lines) {
+    FILE* svg_file = fopen(filename, "w");
+    if (!svg_file) {
+        printf("fopen '%s' failed", filename);
+        return;
+    }
+    // compute canvas boundaries
+    double minX = PTS[0].x;
+    double maxX = PTS[0].x;
+    double minY = PTS[0].y;
+    double maxY = PTS[0].y;
+    for (uint i = 1; i < NPTS; i++) {
+        minX = (PTS[i].x < minX) ? PTS[i].x : minX;
+        maxX = (PTS[i].x > maxX) ? PTS[i].x : maxX;
+        minY = (PTS[i].y < minY) ? PTS[i].y : minY;
+        maxY = (PTS[i].y > maxY) ? PTS[i].y : maxY;
+    }
+    // 10% margin
+    double marginX = 0.1 * (maxX - minX);
+    double marginY = 0.1 * (maxY - minY);
+    minX -= marginX;
+    maxX += marginX;
+    minY -= marginY;
+    maxY += marginY;
+    // headers
+    fprintf(svg_file, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+    fprintf(
+        svg_file,
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1000\" height=\"1000\" viewBox=\"%lf %lf %lf %lf\">\n",
+        minX, minY, maxX, maxY
+    );
+    double stroke_width = 0.04; // TODO : dynamically compute that
+    // draw shape
+    for (uint i = 0; i < NPTS; i++) {
+        uint j = (i + 1) % NPTS;
+        fprintf(
+            svg_file,
+            "<line x1=\"%lf\" y1=\"%lf\" x2=\"%lf\" y2=\"%lf\" stroke=\"black\" stroke-width=\"%lf\"/>\n",
+            PTS[i].x, PTS[i].y, PTS[j].x, PTS[j].y, stroke_width
+        );
+    }
+    // draw enveloppe
+    for (uint i = 0; i < envlp_size; i++) {
+        uint j = (i + 1) % envlp_size;
+        if (show_envlp_points) {
+            fprintf(
+                svg_file,
+                "<circle cx=\"%lf\" cy=\"%lf\" r=\"%lf\" fill=\"purple\"/>",
+                enveloppe[i].x, enveloppe[i].y, stroke_width
+            );
+        }
+        if (show_envlp_lines) {
+            fprintf(
+                svg_file,
+                "<line x1=\"%lf\" y1=\"%lf\" x2=\"%lf\" y2=\"%lf\" stroke=\"red\" stroke-width=\"%lf\"/>\n",
+                enveloppe[i].x, enveloppe[i].y, enveloppe[j].x, enveloppe[j].y, stroke_width / 2
+            );
+        }
+    }
+    // close everything
+    fprintf(svg_file, "</svg>");
+    fclose(svg_file);
+}
+
+int main() {
+    uint samples = 100;
+    Point Cs[samples];
+    Vec Ns[samples];
+    double learn_rate = 0.01;
+    you_spin_me_right_round(Cs, Ns, samples, learn_rate);
+    Point enveloppe[samples];
+    compute_enveloppe(Cs, Ns, samples, enveloppe);
+    create_svg("out.svg", enveloppe, samples, false, true);
 }
